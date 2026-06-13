@@ -1,0 +1,35 @@
+{
+  "heroBadge": "501(c)(3) Non-Profit Organization",
+  "heroHeadlinePre": "Helping ",
+  "heroHeadlineHighlight": "Underprivileged",
+  "heroHeadlinePost": " Groups",
+  "heroSubtitle": "Based in Henderson, Nevada, empowering underserved communities through education, wellness, and compassionate outreach.",
+  "statPrograms": "4",
+  "statVolunteers": "50",
+  "statItems": "6k+",
+  "statEstablished": "EST'24",
+  "aboutIntro": "A distinguished 501(c)(3) non-profit organization devoted to empowering underserved communities through education, wellness, and compassionate outreach.",
+  "aboutMission": "At HUG Foundation, we are committed to fostering a culture of excellence, generosity, and human connection, building a brighter future one HUG at a time.",
+  "programs": [
+    {
+      "title": "HUG for Hygiene",
+      "desc": "Hygiene packets — soap, shampoo, toothbrush, toothpaste, deodorant, and sanitary items — for people facing homelessness or hardship.",
+      "provides": "Each $25 assembles a complete hygiene packet that restores dignity, comfort, and confidence to someone in need."
+    },
+    {
+      "title": "HUG for Education",
+      "desc": "Tutoring, mentorship, SAT prep, and educational resources for underserved students who deserve a fair shot.",
+      "provides": "Free 1-on-1 tutoring sessions and test-prep materials for students who would otherwise go without."
+    },
+    {
+      "title": "HUG for Warmth",
+      "desc": "Clothing and blanket drives distributing warmth to families in need — proudly partnered with Vegas Stronger.",
+      "provides": "Warm jackets, blankets, and clean clothing delivered directly to families facing hardship across the valley."
+    },
+    {
+      "title": "International Scholars Program",
+      "desc": "Supporting and uplifting students globally through mentorship, resources, and opportunity.",
+      "provides": "Mentorship and educational support that reaches motivated students across the world, wherever they are."
+    }
+  ]
+}

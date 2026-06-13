@@ -1,836 +1,767 @@
-"use client";
 import Image from "next/image";
-import { Poppins } from "next/font/google";
-import {
-  FaTshirt,
-  FaBook,
-  FaUsers,
-  FaHeartbeat,
-  FaBuilding,
-} from "react-icons/fa";
-import { HiMenu, HiX } from "react-icons/hi";
+import Head from "next/head";
+import dynamic from "next/dynamic";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import type { GetServerSidePropsContext } from "next";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/pages/api/auth/[...nextauth]";
+import { readContent } from "@/lib/contentStore";
+import { getByPath, type SiteContent } from "@/lib/content";
+import Layout from "@/components/Layout";
 import VolunteerSection from "@/components/applications&contact";
-import Head from 'next/head';
+import ProgramFormModal from "@/components/ProgramFormModal";
+import ProgramTabs from "@/components/ProgramTabs";
+import GalleryGrid from "@/components/GalleryGrid";
+import NebulaDivider from "@/components/NebulaDivider";
+import AstronautFlight from "@/components/AstronautFlight";
+import {
+  EditableProvider,
+  Editable,
+  useEditable,
+} from "@/components/cms/EditableProvider";
 
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+gsap.registerPlugin(ScrollTrigger);
+
+const ParticleField = dynamic(() => import("@/components/ParticleField"), {
+  ssr: false,
+  loading: () => null,
 });
 
-export default function Home() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [vegasModalOpen, setVegasModalOpen] = useState(false);
+const GlobeScene = dynamic(() => import("@/components/GlobeScene"), {
+  ssr: false,
+  loading: () => null,
+});
+
+export async function getServerSideProps(ctx: GetServerSidePropsContext) {
+  const [content, session] = await Promise.all([
+    readContent(),
+    getServerSession(ctx.req, ctx.res, authOptions),
+  ]);
+  return { props: { content, isAdmin: !!session } };
+}
+
+/**
+ * A stat number that counts up when scrolled into view, but becomes inline
+ * editable text for an admin in edit mode (parsing e.g. "6k+" → 6 + "k+").
+ */
+function StatNumber({ field }: { field: string }) {
+  const { content, editing, isAdmin } = useEditable();
+  const value = getByPath(content, field);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (editing) return;
+    const el = ref.current;
+    if (!el) return;
+    const match = value.match(/^(\d+)(.*)$/);
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    if (!match || reduced) {
+      el.textContent = value;
+      return;
+    }
+    const end = parseInt(match[1], 10);
+    const suffix = match[2];
+    const obj = { val: 0 };
+    const tween = gsap.to(obj, {
+      val: end,
+      duration: 2,
+      ease: "power1.out",
+      scrollTrigger: {
+        trigger: el,
+        start: "top 90%",
+        toggleActions: "play none none none",
+      },
+      onUpdate() {
+        el.textContent = Math.round(obj.val) + suffix;
+      },
+    });
+    return () => {
+      tween.scrollTrigger?.kill();
+      tween.kill();
+    };
+  }, [value, editing]);
+
+  if (editing && isAdmin) {
+    return <Editable as="span" field={field} />;
+  }
+  return <span ref={ref}>{value}</span>;
+}
+
+function HomeContent() {
   const [impact1Open, setImpact1Open] = useState(false);
   const [impact2Open, setImpact2Open] = useState(false);
   const [impact3Open, setImpact3Open] = useState(false);
-
-  useEffect(() => {
-    if (vegasModalOpen || impact1Open || impact2Open || impact3Open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "auto";
-    }
-    return () => {
-      document.body.style.overflow = "auto";
-    };
-  }, [vegasModalOpen, impact1Open, impact2Open, impact3Open]);
+  const [programModalOpen, setProgramModalOpen] = useState(false);
+  const [programName, setProgramName] = useState("");
 
   const volunteerRef = useRef<HTMLElement>(null);
-  const [showHeader, setShowHeader] = useState(true);
-  const lastScrollY = useRef(0);
+  const aboutValuesRef = useRef<HTMLUListElement>(null);
+  const donateCardsRef = useRef<HTMLDivElement>(null);
+
+  const anyModalOpen =
+    impact1Open || impact2Open || impact3Open || programModalOpen;
 
   useEffect(() => {
-    function handleScroll() {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY < 50) setShowHeader(true);
-      else if (currentScrollY > lastScrollY.current) setShowHeader(false);
-      else setShowHeader(true);
-      lastScrollY.current = currentScrollY;
-    }
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    document.body.style.overflow = anyModalOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [anyModalOpen]);
+
+  useEffect(() => {
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) return;
+
+    const ctx = gsap.context(() => {
+      if (aboutValuesRef.current) {
+        gsap.fromTo(
+          aboutValuesRef.current.querySelectorAll("li"),
+          { opacity: 0, y: 24 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.55,
+            stagger: 0.12,
+            ease: "power2.out",
+            scrollTrigger: { trigger: aboutValuesRef.current, start: "top 85%" },
+          }
+        );
+        gsap.fromTo(
+          aboutValuesRef.current.querySelectorAll(".value-check"),
+          { scale: 0, opacity: 0 },
+          {
+            scale: 1,
+            opacity: 1,
+            duration: 0.45,
+            stagger: 0.12,
+            ease: "back.out(2)",
+            scrollTrigger: { trigger: aboutValuesRef.current, start: "top 85%" },
+          }
+        );
+      }
+
+      if (donateCardsRef.current) {
+        gsap.fromTo(
+          donateCardsRef.current.querySelectorAll(".impact-card"),
+          { opacity: 0, x: 60 },
+          {
+            opacity: 1,
+            x: 0,
+            duration: 0.55,
+            stagger: 0.13,
+            ease: "power2.out",
+            scrollTrigger: { trigger: donateCardsRef.current, start: "top 85%" },
+          }
+        );
+      }
+
+    });
+
+    return () => ctx.revert();
   }, []);
 
-  function scrollToId(id: string) {
+  function scrollToSection(id: string) {
     if (id === "volunteer") {
-      if (volunteerRef.current) {
-        volunteerRef.current.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
+      volunteerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function openProgram(program: string) {
+    setProgramName(program);
+    setProgramModalOpen(true);
+  }
+
+  function closeAllModals() {
+    setImpact1Open(false);
+    setImpact2Open(false);
+    setImpact3Open(false);
   }
 
   return (
     <>
       <Head>
         <title>HUG Foundation</title>
-        <meta name="home" content="Learn more about our mission." />
+        <meta
+          name="description"
+          content="Helping Underprivileged Groups — Henderson, NV non-profit empowering communities through education, wellness, and compassionate outreach."
+        />
       </Head>
-    <main className={`bg-[#f9f8ff] text-[#1d1d1f] ${poppins.className}`}>
-      {/* Header */}
-      <AnimatePresence>
-        {showHeader && (
-          <motion.header
-            key="header"
-            initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="flex items-center justify-between px-10 py-6 bg-white shadow-sm fixed top-0 left-0 right-0 z-50"
+
+      <Layout onScrollToSection={scrollToSection}>
+        {/* Scroll-driven astronaut bridging hero → about */}
+        <AstronautFlight />
+
+        {/* ─── HERO (black space) ───────────────────────────────────────── */}
+        <section
+          id="hero"
+          className="relative flex flex-col lg:flex-row items-center justify-between px-6 md:px-10 lg:px-20 min-h-screen pt-24 pb-16 overflow-hidden bg-black"
+        >
+          <div className="absolute inset-0 pointer-events-none z-0">
+            <ParticleField />
+          </div>
+
+          <div
+            className="absolute inset-0 pointer-events-none z-0"
+            style={{
+              background:
+                "radial-gradient(ellipse at top left, rgba(109,92,174,0.35) 0%, transparent 55%)",
+            }}
+          />
+
+          {/* Blend: black space → daylight (#f9f8ff) */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-40 z-[1] bg-gradient-to-b from-transparent to-[#f9f8ff]"
+          />
+
+          {/* Text */}
+          <motion.div
+            initial={{ opacity: 0, y: 32, filter: "blur(10px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            className="max-w-xl relative z-10"
           >
-            <div className="text-xl font-semibold text-[#6D5CAE]">
-              HUG Foundation
-            </div>
-            <nav className="hidden md:flex gap-6 text-sm items-center z-10">
-              <button onClick={() => scrollToId("about")} className="hover:underline">
-                About
-              </button>
-              <button onClick={() => scrollToId("programs")} className="hover:underline">
-                Programs
-              </button>
-              <button onClick={() => scrollToId("volunteer")} className="hover:underline">
-                Volunteer
-              </button>
-              <a href="/sat-tutoring" className="hover:underline">
-                SAT Tutoring
-              </a>
-              <button
-                onClick={() => window.open("https://tally.so/r/wkB97o", "_blank")}
-                className="hover:underline"
-              >
-                Contact
-              </button>
+            <Editable
+              as="div"
+              field="heroBadge"
+              className="inline-block px-3 py-1 bg-[#8B7BD8]/20 text-[#cabdf2] font-medium rounded-full text-sm mb-4 border border-[#8B7BD8]/40"
+            />
+
+            <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-5">
+              <Editable as="span" field="heroHeadlinePre" className="text-white" />
+              <span className="relative inline-block">
+                <span
+                  className="absolute inset-0 bg-purple-100 rounded-md -z-10"
+                  aria-hidden="true"
+                />
+                <Editable
+                  as="span"
+                  field="heroHeadlineHighlight"
+                  className="relative text-[#6D5CAE]"
+                />
+              </span>
+              <Editable as="span" field="heroHeadlinePost" className="text-white" />
+            </h1>
+
+            <Editable
+              as="p"
+              field="heroSubtitle"
+              className="text-[#cfcfcf] mb-8 text-lg leading-relaxed"
+            />
+
+            <div className="flex flex-wrap gap-4">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => scrollToId("donate")}
-                className="bg-[#6D5CAE] text-white rounded-full px-4 py-1 font-medium"
+                onClick={() => scrollToSection("donate")}
+                className="bg-[#6D5CAE] text-white px-7 py-3 rounded-lg shadow-md font-medium"
               >
-                Donate Now
+                Get Involved
               </motion.button>
-            </nav>
-            <div className="md:hidden z-50 relative">
-              <button onClick={() => setMenuOpen(!menuOpen)}>
-                {menuOpen ? <HiX size={28} /> : <HiMenu size={28} />}
-              </button>
-              {menuOpen && (
-                <div className="absolute top-14 right-0 w-56 bg-white shadow-lg rounded-md p-4 flex flex-col gap-4 text-sm z-50">
-                  {[
-                    { label: "About", id: "about" },
-                    { label: "Programs", id: "programs" },
-                    { label: "Volunteer", id: "volunteer" },
-                    { label: "SAT Tutoring", link: "/sat-tutoring" },
-                    { label: "Contact", id: "contact" },
-                  ].map(({ label, id, link }) => (
-                    <button
-                      key={label}
-                      onClick={() => {
-                        if (link) {
-                          window.location.href = link;
-                        } else if (id === "contact") {
-                          window.open("https://tally.so/r/wkB97o", "_blank");
-                        } else {
-                          scrollToId(id!);
-                        }
-                        setMenuOpen(false);
-                      }}
-                      className="text-left hover:underline"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      scrollToId("donate");
-                      setMenuOpen(false);
-                    }}
-                    className="bg-[#6D5CAE] text-white rounded-full px-4 py-1 font-medium"
-                  >
-                    Donate Now
-                  </motion.button>
-                </div>
-              )}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => scrollToSection("about")}
+                className="border border-white/70 text-white px-7 py-3 rounded-lg font-medium bg-white/10 backdrop-blur-sm hover:bg-white/20 transition"
+              >
+                Learn More
+              </motion.button>
             </div>
-          </motion.header>
-        )}
-      </AnimatePresence>
+          </motion.div>
 
-      {/* Hero Section */}
-      <section className="relative flex flex-col lg:flex-row items-center justify-between px-6 md:px-10 lg:px-20 py-20">
-        <div
-          className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-purple-100 via-transparent to-transparent pointer-events-none"
-          aria-hidden="true"
-        ></div>
-
-        {/* Text Block */}
-        <div className="max-w-xl relative z-10">
-          <div className="inline-block px-3 py-1 bg-purple-100 text-[#6D5CAE] font-medium rounded-full text-sm mb-3 shadow relative">
-            <span className="relative z-10">
-              501(c)(3) Non-Profit Organization
-            </span>
-          </div>
-          <h2 className="text-4xl font-bold leading-tight mb-5 relative z-10 mt-4">
-            Helping{" "}
-            <span className="relative inline-block">
-              <span
-                className="bg-purple-100 rounded-md absolute inset-0 -z-10 scale-102"
+          {/* Logo */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.85, delay: 0.2, ease: "easeOut" }}
+            className="mt-14 lg:mt-0 relative z-10 flex justify-center lg:justify-end w-full lg:w-[44%]"
+          >
+            <div
+              className="relative"
+              style={{ animation: "heroFloat 4s ease-in-out infinite" }}
+            >
+              {/* purple glow behind the bright logo card */}
+              <div
                 aria-hidden="true"
-              ></span>
-              <span className="relative font-semibold text-[#6D5CAE]">
-                Underprivileged
-              </span>
-            </span>{" "}
-            Groups
-          </h2>
-          <p className="text-gray-600 mb-6 relative z-10">
-            Based in Henderson, Nevada, empowering underserved communities
-            through education, wellness, and compassionate outreach.
-          </p>
-          <div className="flex gap-4 relative z-10">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => scrollToId("donate")}
-              className="bg-[#6D5CAE] text-white px-6 py-2 rounded-md shadow cursor-pointer"
-            >
-              Get Involved
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => scrollToId("about")}
-              className="border border-[#6D5CAE] text-[#6D5CAE] px-6 py-2 rounded-md cursor-pointer"
-            >
-              Learn More
-            </motion.button>
-          </div>
-        </div>
-
-        {/* Logo */}
-        <div className="mt-10 lg:mt-0 relative z-10 flex justify-center lg:justify-end w-full lg:w-[40%]">
-          <div className="relative">
-            <div className="absolute -top-4 -left-4 w-full h-full bg-purple-100 rounded-xl z-0" />
-            <Image
-              src="/HUGlogo.png"
-              alt="HUG Logo"
-              width={500}
-              height={500}
-              className="relative z-10 rounded-lg shadow-lg w-[340px] sm:w-[380px] md:w-[420px] lg:w-[480px] xl:w-[520px]"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 px-6 md:px-20 py-14 bg-[#f9f8ff] text-center text-[#6D5CAE] font-semibold">
-        <div>
-          <p className="text-3xl">150+</p>
-          <p className="text-sm text-gray-500">Active Volunteers</p>
-        </div>
-        <div>
-          <p className="text-3xl">1k+</p>
-          <p className="text-sm text-gray-500">Total Donations</p>
-        </div>
-        <div>
-          <p className="text-3xl">2</p>
-          <p className="text-sm text-gray-500">Community Programs</p>
-        </div>
-        <div>
-          <p className="text-3xl">EST'24</p>
-          <p className="text-sm text-gray-500">Established</p>
-        </div>
-      </section>
-
-      {/* About Section */}
-      <section
-        id="about"
-        className="px-6 md:px-20 py-20 bg-white text-[#1d1d1f]"
-      >
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-          About <span className="text-[#6D5CAE]">HUG Foundation</span>
-        </h2>
-        <p className="text-center text-gray-600 max-w-2xl mx-auto mb-12">
-          A distinguished 501(c)(3) non-profit organization devoted to
-          empowering underserved communities through education, wellness, and
-          compassionate outreach.
-        </p>
-
-        <div className="grid md:grid-cols-2 gap-12">
-          {/* Left Column */}
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Our Mission</h3>
-            <p className="text-gray-600 mb-8">
-              At HUG Foundation, we are committed to fostering a culture of
-              excellence, generosity, and human connection, building a brighter
-              future one HUG at a time.
-            </p>
-
-            <h3 className="text-lg font-semibold mb-3">Our Values</h3>
-            <ul className="space-y-4 text-gray-700">
-              <li className="flex items-start gap-2">
-                <span className="text-[#6D5CAE] text-xl">✔</span>
-                <span>
-                  <strong>Compassionate Service</strong> - Approaching every
-                  interaction with empathy and care
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#6D5CAE] text-xl">✔</span>
-                <span>
-                  <strong>Inclusive Community</strong> - Creating spaces where
-                  everyone feels valued and welcome
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#6D5CAE] text-xl">✔</span>
-                <span>
-                  <strong>Leadership Development</strong> - Empowering students
-                  to become tomorrow’s leaders
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#6D5CAE] text-xl">✔</span>
-                <span>
-                  <strong>Sustainable Impact</strong> - Making lasting
-                  differences in the communities we serve
-                </span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-            <div className="p-6 bg-[#f4f2fd] rounded-lg shadow-sm">
-              <h4 className="text-md font-semibold text-[#6D5CAE] mb-1">
-                Student Volunteers
-              </h4>
-              <p className="text-gray-700 text-sm leading-relaxed">
-                We proudly engage student volunteers, providing leadership
-                opportunities that make a lasting difference in both their lives
-                and the communities they serve.
-              </p>
-            </div>
-            <div className="p-6 bg-[#f4f2fd] rounded-lg shadow-sm">
-              <h4 className="text-md font-semibold text-[#6D5CAE] mb-1">
-                Community Impact
-              </h4>
-              <p className="text-gray-700 text-sm leading-relaxed">
-                Our programs directly address the needs of underserved
-                communities, providing essential resources, educational support,
-                and wellness initiatives.
-              </p>
-            </div>
-            <div className="p-6 bg-[#f4f2fd] rounded-lg shadow-sm">
-              <h4 className="text-md font-semibold text-[#6D5CAE] mb-1">
-                Holistic Approach
-              </h4>
-              <p className="text-gray-700 text-sm leading-relaxed">
-                We believe in addressing the whole person – their educational
-                needs, physical well-being, and emotional support – creating
-                comprehensive solutions.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="donate"
-        className="bg-[#f9f8ff] py-20 px-6 md:px-20 flex flex-col lg:flex-row gap-10 items-start justify-center"
-      >
-        {/* Donorbox iframe */}
-        <div className="bg-white shadow rounded-lg p-4 max-w-[500px] w-full">
-          <iframe
-            src="https://donorbox.org/embed/hug-cares-a-community-call-to-action-784141?"
-            name="donorbox"
-            allow="payment"
-            seamless
-            style={{
-              maxWidth: "500px",
-              minWidth: "250px",
-              minHeight: "580px",
-              maxHeight: "none",
-              overflow: "hidden",
-              border: "none",
-            }}
-            height="auto"
-            width="100%"
-          ></iframe>
-        </div>
-
-        {/* Your Impact Cards */}
-        <div className="flex flex-col gap-6 w-full lg:max-w-md">
-          <div className="flex flex-col gap-6 w-full lg:max-w-md">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-2">$25 Provides</h3>
-              <p className="text-gray-600 mb-4">
-                Essential school supplies for a student in need, supporting
-                their educational journey.
-              </p>
-              <button
-                onClick={() => setImpact1Open(true)}
-                className="text-[#6D5CAE] text-sm font-medium hover:underline"
-              >
-                See impact stories →
-              </button>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-2">$100 Provides</h3>
-              <p className="text-gray-600 mb-4">
-                An entire month of after-school programming for a child,
-                including academic support and enrichment activities.
-              </p>
-              <button
-                onClick={() => setImpact2Open(true)}
-                className="text-[#6D5CAE] text-sm font-medium hover:underline"
-              >
-                See impact stories →
-              </button>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-2">Clothing Donations</h3>
-              <p className="text-gray-600 mb-4">
-                Your donated clothing items go directly to families in need,
-                providing warmth, comfort, and dignity.
-              </p>
-              <button
-                onClick={() => setImpact3Open(true)}
-                className="text-[#6D5CAE] text-sm font-medium hover:underline"
-              >
-                See impact stories →
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-      <AnimatePresence>
-        {(vegasModalOpen || impact1Open || impact2Open || impact3Open) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-40 z-[9999] flex justify-center items-center px-4"
-            onClick={() => {
-              setVegasModalOpen(false);
-              setImpact1Open(false);
-              setImpact2Open(false);
-              setImpact3Open(false);
-            }}
-          >
-            <motion.div
-              onClick={(e) => e.stopPropagation()}
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white relative rounded-lg p-6 max-w-md w-full shadow-xl"
-            >
-              {/* Close button */}
-              <button
-                className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold"
-                onClick={() => {
-                  setVegasModalOpen(false);
-                  setImpact1Open(false);
-                  setImpact2Open(false);
-                  setImpact3Open(false);
-                }}
-                aria-label="Close modal"
-              >
-                ×
-              </button>
-
-              {vegasModalOpen && (
-                <>
-                  <h3 className="text-lg font-semibold mb-4">
-                    Vegas Clothing Drive
-                  </h3>
-                  <p className="text-gray-600 text-sm">
-                    During our Vegas drive, we provided hundreds of donated
-                    clothing items to local families. One parent shared how
-                    winter jackets from HUG helped their children stay warm
-                    during a difficult season.
-                  </p>
-                </>
-              )}
-              {impact1Open && (
-                <>
-                  <h3 className="text-lg font-semibold mb-4">$25 Impact</h3>
-                  <p className="text-gray-600 text-sm">
-                    Thanks to a generous $25 donation, HUG Foundation assembled
-                    a complete hygiene packet filled with essentials such as
-                    soap, shampoo, conditioner, toothpaste, a toothbrush,
-                    deodorant, and sanitary items. For someone struggling with
-                    homelessness or financial hardship, these items are not just
-                    products they are tools for confidence, dignity, and self
-                    care. This single packet means someone can go to school work
-                    or an important meeting feeling fresh and respected. Your
-                    $25 doesn't just buy hygiene items, it creates a moment of
-                    hope and reminds someone in need that their community cares
-                    for them.
-                  </p>
-                </>
-              )}
-              {impact2Open && (
-                <>
-                  <h3 className="text-lg font-semibold mb-4">$100 Impact</h3>
-                  <p className="text-gray-600 text-sm">
-                    At HUG Foundation, a $100 donation goes a long way. With
-                    just one contribution, we were able to provide 4 hygiene
-                    packets filled with essentials like soap, toothbrushes, and
-                    sanitary items. These packets were distributed during a
-                    community outreach event, helping people experiencing
-                    homelessness feel clean, cared for, and seen. That same $100
-                    also helped support our SAT tutoring initiative. Three
-                    students received a full week of tutoring and access to test
-                    prep materials. These students, who otherwise would not have
-                    had access to quality support, were given a real chance to
-                    improve their scores and pursue college with confidence.
-                    Part of the donation also went toward expanding our outreach
-                    efforts. We printed flyers, delivered supplies, and reached
-                    more than 40 individuals in just one day. The impact of one
-                    donation stretched across hygiene, education, and community
-                    care. At HUG Foundation, every dollar is used to create
-                    meaningful, lasting change.
-                  </p>
-                </>
-              )}
-              {impact3Open && (
-                <>
-                  <h3 className="text-lg font-semibold mb-4">
-                    Clothing Donation Impact
-                  </h3>
-                  <p className="text-gray-600 text-sm">
-                    Thanks to the generosity of our supporters, HUG Foundation
-                    collected over 1,000 articles of clothing through local
-                    drives, school partnerships, and neighborhood drop-off
-                    events. These clothes were sorted, cleaned, and carefully
-                    packed by our volunteers before being donated to Vegas
-                    Stronger, a nonprofit dedicated to helping individuals
-                    recovering from homelessness, addiction, and poverty in Las
-                    Vegas. From warm jackets to clean shirts, every piece of
-                    clothing you donated reached someone who needed it most-men,
-                    women, and children striving to rebuild their lives. These
-                    clothes don't just keep people warm— they offer confidence
-                    for job interviews, comfort during tough times, and a
-                    reminder that they are not forgotten. Your support allows
-                    HUG Foundation to continue partnering with organizations
-                    like Vegas Stronger, turning every closet clean out into a
-                    chance to change lives.
-                  </p>
-                </>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Programs Section */}
-      <section id="programs" className="bg-white px-10 py-20">
-        <h2 className="text-3xl font-bold text-center mb-10">
-          Our <span className="text-[#6D5CAE]">Programs</span>
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="p-6 bg-[#f9f8ff] rounded-md shadow flex gap-4 items-start">
-            <FaTshirt className="text-[#6D5CAE] text-3xl mt-1" />
-            <div>
-              <h3 className="font-semibold text-lg mb-2">
-                Clothing Donation Drives
-              </h3>
-              <p className="text-gray-600 mb-2">
-                We collect and distribute gently used apparel — with the
-                exception of undergarments — to individuals and families in
-                need.
-              </p>
-              <a
-                href="https://tally.so/r/n949PG"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#6D5CAE] hover:underline"
-              >
-                Get Started →
-              </a>
-            </div>
-          </div>
-          <div className="p-6 bg-[#f9f8ff] rounded-md shadow flex gap-4 items-start">
-            <FaBook className="text-[#6D5CAE] text-3xl mt-1" />
-            <div>
-              <h3 className="font-semibold text-lg mb-2">
-                Educational Support
-              </h3>
-              <p className="text-gray-600 mb-2">
-                Providing tutoring, mentorship, and educational resources to
-                support academic success in underserved communities.
-              </p>
-              <a
-                href="https://tally.so/r/w50p6Q"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#6D5CAE] hover:underline"
-              >
-                Apply now →
-              </a>
-            </div>
-          </div>
-          <div className="p-6 bg-[#f9f8ff] rounded-md shadow flex gap-4 items-start">
-            <FaUsers className="text-[#6D5CAE] text-3xl mt-1" />
-            <div>
-              <h3 className="font-semibold text-lg mb-2">
-                Leadership Development
-              </h3>
-              <p className="text-gray-600 mb-2">
-                Creating opportunities for students to develop leadership skills
-                through meaningful volunteer experiences.
-              </p>
-              <a
-                href="https://tally.so/r/wv6dQ4"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#6D5CAE] hover:underline"
-              >
-                Apply now →
-              </a>
-            </div>
-          </div>
-          <div className="p-6 bg-[#f9f8ff] rounded-md shadow flex gap-4 items-start">
-            <FaHeartbeat className="text-[#6D5CAE] text-3xl mt-1" />
-            <div>
-              <h3 className="font-semibold text-lg mb-2">
-                Wellness Initiatives
-              </h3>
-              <p className="text-gray-600 mb-2">
-                Promoting physical and mental wellbeing through accessible
-                health resources and community programs.
-              </p>
-              <a
-                href="https://tally.so/r/3qQvLg"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#6D5CAE] hover:underline"
-              >
-                Apply now →
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Partners Section */}
-      <section className="bg-[#f9f8ff] px-6 md:px-20 py-20">
-        <h2 className="text-3xl font-bold text-center mb-3">
-          Our <span className="text-[#6D5CAE]">Partners</span>
-        </h2>
-        <p className="text-center text-gray-600 max-w-2xl mx-auto mb-12">
-          Working together with community organizations to create lasting impact
-          in Henderson and the greater Las Vegas area.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Vegas Stronger */}
-          <div className="p-6 bg-white rounded-lg shadow hover:shadow-md transition-all">
-            <div className="flex items-start gap-3 mb-3">
-              <div className="p-3 bg-purple-100 rounded-full">
-                <FaBuilding className="w-6 h-6 text-[#6D5CAE]" />
-              </div>
-              <h3 className="text-lg font-semibold">Vegas Stronger</h3>
-            </div>
-            <p className="text-gray-600 mb-4">
-              Collaborating to strengthen our community through unified efforts
-              and shared resources, making Las Vegas a better place for
-              everyone.
-            </p>
-            <button
-              onClick={() => setVegasModalOpen(true)}
-              className="text-[#6D5CAE] font-medium text-sm hover:underline"
-            >
-              Learn more about our partnership →
-            </button>
-          </div>
-
-          {/* Become a Partner */}
-          <div className="p-6 bg-white rounded-lg shadow hover:shadow-md transition-all">
-            <div className="flex items-start gap-3 mb-3">
-              <div className="p-3 bg-purple-100 rounded-full">
-                <svg
-                  className="w-6 h-6 text-[#6D5CAE]"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold">Become a Partner</h3>
-            </div>
-            <p className="text-gray-600 mb-4">
-              We're always looking to collaborate with organizations that share
-              our vision for a stronger, more inclusive community in Henderson
-              and beyond.
-            </p>
-            <a
-              href="https://tally.so/r/wkB97o"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#6D5CAE] font-medium text-sm hover:underline"
-            >
-              Get in touch →
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* Vegas Stronger Modal */}
-      <AnimatePresence>
-        {vegasModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{
-              opacity: 0,
-              transitionEnd: { display: "none" },
-            }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-[9999]"
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-4 p-6 relative"
-            >
-              {/* Close Button */}
-              <button
-                onClick={() => setVegasModalOpen(false)}
-                className="absolute top-4 right-4 text-gray-600 hover:text-black text-xl font-bold"
-              >
-                &times;
-              </button>
-
-              {/* Modal Content */}
-              <h2 className="text-2xl font-bold mb-4 text-[#6D5CAE]">
-                Our Partnership with Vegas Stronger
-              </h2>
-              <p className="text-gray-700 mb-4">
-                HUG Foundation started in July 2024, where we collected 250
-                blankets and donated them all to Vegas Stronger. We worked with
-                Stacey Lockhart to help hundreds of people to ensure their
-                comfort in a time of need. As of now, we assist vegas stronger on a quarterly 
-                basis, partnering with other schools in the Clark County district to
-                achieve a set goal of donations ranging from shirts to
-                shoes. HUG continues to strive for the warmth that everyone
-                deserves.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Image
-                  src="/vegasstronger1.jpg"
-                  alt="Vegas Stronger 1"
-                  width={500}
-                  height={300}
-                  className="rounded-md object-cover w-full h-auto"
-                />
-                <Image
-                  src="/vegasstronger2.jpg"
-                  alt="Vegas Stronger 2"
-                  width={500}
-                  height={300}
-                  className="rounded-md object-cover w-full h-auto"
-                />
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <VolunteerSection ref={volunteerRef} />
-
-      {/* Footer */}
-      <footer
-        className="py-16 text-sm text-[#6D5CAE]"
-        style={{ backgroundColor: "rgba(109, 92, 174, 0.1)" }}
-      >
-        <div className="px-6 md:px-20 max-w-[1280px] mx-auto w-full">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6 w-full">
-            {/* Left: Logo */}
-            <div className="flex items-center gap-3 md:flex-1">
+                className="absolute -inset-8 rounded-full bg-[#6D5CAE]/40 blur-3xl z-0"
+              />
+              <div className="absolute -top-5 -left-5 w-full h-full bg-purple-100/70 rounded-2xl z-0" />
               <Image
                 src="/HUGlogo.png"
-                alt="HUG Foundation Logo"
-                width={50}
-                height={50}
-                className="rounded"
+                alt="HUG Foundation"
+                width={520}
+                height={520}
+                priority
+                className="relative z-10 rounded-2xl shadow-2xl w-[260px] sm:w-[320px] md:w-[380px] lg:w-[440px] xl:w-[480px]"
               />
-              <span className="font-semibold">HUG Foundation</span>
             </div>
+          </motion.div>
 
-            {/* Center: Nav buttons + copyright */}
-            <div className="flex flex-col items-center flex-1">
-              <div className="flex flex-wrap justify-center gap-6 md:gap-4 mb-4">
-                <button
-                  onClick={() => scrollToId("about")}
-                  className="hover:underline"
-                >
-                  About
-                </button>
-                <button
-                  onClick={() => scrollToId("programs")}
-                  className="hover:underline"
-                >
-                  Programs
-                </button>
-                <button
-                  onClick={() => scrollToId("volunteer")}
-                  className="hover:underline"
-                >
-                  Volunteer
-                </button>
-                <button>
-                <a href="/sat-tutoring" className="hover:underline">
-                  SAT Tutoring
-                </a>
-                </button>
-                <button
-                  onClick={() =>
-                    window.open("https://tally.so/r/wkB97o", "_blank")
-                  }
-                  className="hover:underline"
-                >
-                  Contact
-                </button>
+          {/* Scroll indicator */}
+          <button
+            onClick={() => scrollToSection("stats")}
+            aria-label="Scroll down"
+            className="absolute bottom-8 left-1/2 z-10 text-white opacity-70 hover:opacity-100 transition"
+            style={{
+              transform: "translateX(-50%)",
+              animation: "bounce 2s ease-in-out infinite",
+            }}
+          >
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </section>
+
+        {/* ─── STATS ────────────────────────────────────────────────────── */}
+        <section
+          id="stats"
+          className="space-panel-white backdrop-blur-sm py-14 px-6 md:px-20"
+        >
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 divide-x-0 md:divide-x divide-purple-100">
+              <div className="text-center px-4 py-4 border-b md:border-b-0 border-purple-100">
+                <p className="text-3xl md:text-4xl font-bold text-[#6D5CAE]">
+                  <StatNumber field="statPrograms" />
+                </p>
+                <p className="text-sm text-gray-500 mt-1">Programs</p>
               </div>
-              <p className="text-center text-xs">
-                © {new Date().getFullYear()} HUG Foundation. All rights
-                reserved.
-                <br />
-                Website designed and built by{" "}
-                <a
-                  href="https://arghyav.vercel.app/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline hover:text-[#4b3a8f]"
-                >
-                  Arghya Vyas
-                </a>
-              </p>
-            </div>
-            {/* Right: Location */}
-            <div className="text-center md:text-right font-medium text-[#6D5CAE] md:flex-1 mt-4 md:mt-0">
-              <p>Henderson, NV</p>
+              <div className="text-center px-4 py-4 border-b md:border-b-0 border-purple-100">
+                <p className="text-3xl md:text-4xl font-bold text-[#6D5CAE]">
+                  <StatNumber field="statVolunteers" />
+                </p>
+                <p className="text-sm text-gray-500 mt-1">Active Volunteers</p>
+              </div>
+              <div className="text-center px-4 py-4">
+                <p className="text-3xl md:text-4xl font-bold text-[#6D5CAE]">
+                  <StatNumber field="statItems" />
+                </p>
+                <p className="text-sm text-gray-500 mt-1">Items Donated</p>
+              </div>
+              <div className="text-center px-4 py-4">
+                <p className="text-3xl md:text-4xl font-bold text-[#6D5CAE]">
+                  <Editable as="span" field="statEstablished" />
+                </p>
+                <p className="text-sm text-gray-500 mt-1">Established</p>
+              </div>
             </div>
           </div>
-        </div>
-      </footer>
-    </main>
-  </>
+        </section>
+
+        <NebulaDivider />
+
+        {/* ─── ABOUT ────────────────────────────────────────────────────── */}
+        <section
+          id="about"
+          className="relative px-6 md:px-20 py-28 md:py-32 space-panel backdrop-blur-sm text-[#1d1d1f] overflow-hidden"
+        >
+          {/* whisper-subtle cosmic accents (kept very light on the light bg) */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <div
+              className="absolute -top-24 left-[15%] w-[38rem] h-[38rem] rounded-full opacity-60 nebula-drift"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(157,143,214,0.10) 0%, transparent 70%)",
+              }}
+            />
+            <div
+              className="absolute bottom-[-6rem] right-[12%] w-[32rem] h-[32rem] rounded-full opacity-60 nebula-drift-slow"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(109,92,174,0.08) 0%, transparent 70%)",
+              }}
+            />
+          </div>
+
+          <div className="relative max-w-6xl mx-auto">
+            {/* heading block */}
+            <div className="text-center mb-16 md:mb-20">
+              <span className="inline-flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.22em] text-[#6D5CAE] mb-5">
+                <span className="h-px w-8 bg-gradient-to-r from-transparent to-[#6D5CAE]" />
+                Who We Are
+                <span className="h-px w-8 bg-gradient-to-l from-transparent to-[#6D5CAE]" />
+              </span>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-5">
+                About <span className="text-[#6D5CAE]">HUG Foundation</span>
+              </h2>
+              <div className="mx-auto h-[3px] w-24 rounded-full bg-gradient-to-r from-[#9d8fd6] to-[#6D5CAE] shadow-[0_0_14px_rgba(109,92,174,0.6)] mb-7" />
+              <Editable
+                as="p"
+                field="aboutIntro"
+                className="block text-center text-gray-600 max-w-2xl mx-auto leading-relaxed text-base md:text-lg"
+              />
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-start">
+              {/* Mission + Values */}
+              <div>
+                <h3 className="text-xl font-semibold mb-3 tracking-tight">
+                  Our Mission
+                </h3>
+                <Editable
+                  as="p"
+                  field="aboutMission"
+                  className="block text-gray-600 mb-11 leading-relaxed"
+                />
+
+                <h3 className="text-xl font-semibold mb-6 tracking-tight">
+                  Our Values
+                </h3>
+                <ul ref={aboutValuesRef} className="space-y-5 text-gray-700">
+                  {[
+                    {
+                      title: "Compassionate Service",
+                      desc: "Approaching every interaction with empathy and care",
+                    },
+                    {
+                      title: "Inclusive Community",
+                      desc: "Creating spaces where everyone feels valued and welcome",
+                    },
+                    {
+                      title: "Leadership Development",
+                      desc: "Empowering students to become tomorrow's leaders",
+                    },
+                    {
+                      title: "Sustainable Impact",
+                      desc: "Making lasting differences in the communities we serve",
+                    },
+                  ].map(({ title, desc }) => (
+                    <li key={title} className="flex items-start gap-4">
+                      <span className="value-check grid place-items-center w-9 h-9 rounded-xl bg-purple-100 text-[#6D5CAE] shrink-0 shadow-[0_0_16px_rgba(109,92,174,0.28)] ring-1 ring-[#6D5CAE]/15">
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
+                        </svg>
+                      </span>
+                      <span className="pt-1 leading-relaxed">
+                        <strong className="font-semibold text-[#1d1d1f]">
+                          {title}
+                        </strong>{" "}
+                        — <span className="text-gray-600">{desc}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Premium glass cards */}
+              <div className="space-y-5">
+                {[
+                  {
+                    title: "Student Volunteers",
+                    body: "We proudly engage student volunteers, providing leadership opportunities that make a lasting difference in both their lives and the communities they serve.",
+                  },
+                  {
+                    title: "Community Impact",
+                    body: "Our programs directly address the needs of underserved communities, providing essential resources, educational support, and wellness initiatives.",
+                  },
+                  {
+                    title: "Holistic Approach",
+                    body: "We believe in addressing the whole person – their educational needs, physical well-being, and emotional support – creating comprehensive solutions.",
+                  },
+                ].map(({ title, body }, i) => (
+                  <motion.div
+                    key={title}
+                    initial={{ opacity: 0, y: 50 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-60px" }}
+                    transition={{
+                      duration: 0.6,
+                      delay: i * 0.12,
+                      ease: "easeOut",
+                    }}
+                    whileHover={{
+                      y: -6,
+                      transition: { type: "spring", stiffness: 300, damping: 20 },
+                    }}
+                    className="group relative overflow-hidden rounded-2xl border border-purple-100/70 bg-white/70 backdrop-blur-md p-6 shadow-[0_6px_28px_-10px_rgba(109,92,174,0.22)] transition-shadow duration-300 hover:shadow-[0_22px_60px_-16px_rgba(109,92,174,0.5)]"
+                  >
+                    {/* hover glow */}
+                    <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-[#9d8fd6]/0 blur-2xl transition-colors duration-300 group-hover:bg-[#9d8fd6]/25" />
+                    <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-transparent transition group-hover:ring-[#6D5CAE]/30" />
+                    <h4 className="relative font-semibold text-[#6D5CAE] mb-2 text-lg">
+                      {title}
+                    </h4>
+                    <p className="relative text-gray-600 text-sm leading-relaxed">
+                      {body}
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── GLOBE ────────────────────────────────────────────────────── */}
+        <section className="space-panel-white backdrop-blur-sm py-20 px-6 md:px-20 overflow-hidden">
+          <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center gap-12">
+            <div className="w-full md:w-1/2 h-64 md:h-80 relative">
+              <GlobeScene />
+            </div>
+            <div className="md:w-1/2 text-center md:text-left">
+              <h2 className="text-2xl md:text-3xl font-bold mb-4">
+                Making an impact in{" "}
+                <span className="text-[#6D5CAE]">Henderson, NV</span> and beyond
+              </h2>
+              <p className="text-gray-600 leading-relaxed">
+                From local clothing drives to SAT tutoring, every initiative we
+                run creates ripples of positive change throughout our community
+                and inspires future leaders to give back.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <NebulaDivider />
+
+        {/* ─── PROGRAMS (tabs) ──────────────────────────────────────────── */}
+        <section
+          id="programs"
+          className="space-panel backdrop-blur-sm px-6 md:px-20 py-24"
+        >
+          <h2 className="text-3xl font-bold text-center mb-4">
+            Our <span className="text-[#6D5CAE]">Programs</span>
+          </h2>
+          <p className="text-center text-gray-600 max-w-2xl mx-auto mb-14">
+            Four focused initiatives, each built to uplift a different part of
+            our community.
+          </p>
+
+          <ProgramTabs onApply={openProgram} />
+        </section>
+
+        {/* ─── DONATE ───────────────────────────────────────────────────── */}
+        <section
+          id="donate"
+          className="space-panel-white backdrop-blur-sm py-24 px-6 md:px-20 flex flex-col lg:flex-row gap-10 items-start justify-center"
+        >
+          {/* Donorbox iframe — untouched */}
+          <div className="bg-white shadow-md rounded-xl p-4 max-w-[500px] w-full">
+            <iframe
+              src="https://donorbox.org/embed/hug-cares-a-community-call-to-action-784141?"
+              name="donorbox"
+              allow="payment"
+              seamless
+              style={{
+                maxWidth: "500px",
+                minWidth: "250px",
+                minHeight: "580px",
+                maxHeight: "none",
+                overflow: "hidden",
+                border: "none",
+              }}
+              height="auto"
+              width="100%"
+            />
+          </div>
+
+          {/* Impact cards */}
+          <div
+            ref={donateCardsRef}
+            className="flex flex-col gap-5 w-full lg:max-w-md"
+          >
+            {[
+              {
+                open: impact1Open,
+                setOpen: setImpact1Open,
+                heading: "$25 Provides",
+                body: "Essential school supplies for a student in need, supporting their educational journey.",
+              },
+              {
+                open: impact2Open,
+                setOpen: setImpact2Open,
+                heading: "$100 Provides",
+                body: "An entire month of after-school programming for a child, including academic support and enrichment activities.",
+              },
+              {
+                open: impact3Open,
+                setOpen: setImpact3Open,
+                heading: "Clothing Donations",
+                body: "Your donated clothing items go directly to families in need, providing warmth, comfort, and dignity.",
+              },
+            ].map(({ heading, body, setOpen }) => (
+              <div
+                key={heading}
+                className="impact-card bg-white rounded-xl shadow-sm p-6 border border-purple-50"
+              >
+                <h3 className="text-lg font-semibold mb-2">{heading}</h3>
+                <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                  {body}
+                </p>
+                <button
+                  onClick={() => setOpen(true)}
+                  className="text-[#6D5CAE] text-sm font-medium hover:underline"
+                >
+                  See impact stories →
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Impact modals */}
+        <AnimatePresence>
+          {(impact1Open || impact2Open || impact3Open) && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 z-[9999] flex justify-center items-center px-4"
+              onClick={closeAllModals}
+            >
+              <motion.div
+                onClick={(e) => e.stopPropagation()}
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white relative rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[85vh] overflow-y-auto"
+              >
+                <button
+                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl font-bold leading-none"
+                  onClick={closeAllModals}
+                  aria-label="Close"
+                >
+                  &times;
+                </button>
+
+                {impact1Open && (
+                  <>
+                    <h3 className="text-lg font-semibold mb-4">$25 Impact</h3>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                      Thanks to a generous $25 donation, HUG Foundation assembled
+                      a complete hygiene packet filled with essentials such as
+                      soap, shampoo, conditioner, toothpaste, a toothbrush,
+                      deodorant, and sanitary items. For someone struggling with
+                      homelessness or financial hardship, these items are not just
+                      products they are tools for confidence, dignity, and self
+                      care. This single packet means someone can go to school work
+                      or an important meeting feeling fresh and respected. Your
+                      $25 doesn&apos;t just buy hygiene items, it creates a moment of
+                      hope and reminds someone in need that their community cares
+                      for them.
+                    </p>
+                  </>
+                )}
+                {impact2Open && (
+                  <>
+                    <h3 className="text-lg font-semibold mb-4">$100 Impact</h3>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                      At HUG Foundation, a $100 donation goes a long way. With
+                      just one contribution, we were able to provide 4 hygiene
+                      packets filled with essentials like soap, toothbrushes, and
+                      sanitary items. These packets were distributed during a
+                      community outreach event, helping people experiencing
+                      homelessness feel clean, cared for, and seen. That same
+                      $100 also helped support our SAT tutoring initiative. Three
+                      students received a full week of tutoring and access to test
+                      prep materials. These students, who otherwise would not have
+                      had access to quality support, were given a real chance to
+                      improve their scores and pursue college with confidence.
+                      Part of the donation also went toward expanding our outreach
+                      efforts. We printed flyers, delivered supplies, and reached
+                      more than 40 individuals in just one day. The impact of one
+                      donation stretched across hygiene, education, and community
+                      care. At HUG Foundation, every dollar is used to create
+                      meaningful, lasting change.
+                    </p>
+                  </>
+                )}
+                {impact3Open && (
+                  <>
+                    <h3 className="text-lg font-semibold mb-4">
+                      Clothing Donation Impact
+                    </h3>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                      Thanks to the generosity of our supporters, HUG Foundation
+                      collected over 1,000 articles of clothing through local
+                      drives, school partnerships, and neighborhood drop-off
+                      events. These clothes were sorted, cleaned, and carefully
+                      packed by our volunteers before being donated to Vegas
+                      Stronger, a nonprofit dedicated to helping individuals
+                      recovering from homelessness, addiction, and poverty in Las
+                      Vegas. From warm jackets to clean shirts, every piece of
+                      clothing you donated reached someone who needed it
+                      most—men, women, and children striving to rebuild their
+                      lives. These clothes don&apos;t just keep people warm— they
+                      offer confidence for job interviews, comfort during tough
+                      times, and a reminder that they are not forgotten. Your
+                      support allows HUG Foundation to continue partnering with
+                      organizations like Vegas Stronger, turning every closet
+                      clean out into a chance to change lives.
+                    </p>
+                  </>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <NebulaDivider />
+
+        {/* ─── GALLERY ──────────────────────────────────────────────────── */}
+        <section className="space-panel backdrop-blur-sm px-6 md:px-20 py-24">
+          <h2 className="text-3xl font-bold text-center mb-4">
+            Our Impact in <span className="text-[#6D5CAE]">Action</span>
+          </h2>
+          <p className="text-center text-gray-600 max-w-2xl mx-auto mb-14">
+            Moments from our drives, tutoring sessions, and community outreach
+            across the valley.
+          </p>
+          <GalleryGrid />
+        </section>
+
+        {/* ─── VOLUNTEER ────────────────────────────────────────────────── */}
+        <VolunteerSection ref={volunteerRef} />
+
+        {/* Per-program interest form modal (opened from program tabs) */}
+        <ProgramFormModal
+          open={programModalOpen}
+          onClose={() => setProgramModalOpen(false)}
+          program={programName}
+        />
+      </Layout>
+    </>
+  );
+}
+
+export default function Home({
+  content,
+  isAdmin,
+}: {
+  content: SiteContent;
+  isAdmin: boolean;
+}) {
+  return (
+    <EditableProvider initialContent={content} isAdmin={isAdmin}>
+      <HomeContent />
+    </EditableProvider>
   );
 }
