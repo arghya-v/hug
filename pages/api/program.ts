@@ -29,26 +29,28 @@ export default async function handler(
 
   const { name, email, program, message } = parsed.data;
 
-  try {
-    await sendAlert({
-      label: "Program Interest",
-      subject: `[HUG Program] ${program} — ${name}`,
-      replyTo: email,
-      logData: { name, email, program, message },
-      html: `
-        <h2>New Program Interest</h2>
-        <p><strong>Program:</strong> ${program}</p>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        ${
-          message
-            ? `<p><strong>Message:</strong></p><p style="white-space:pre-wrap">${message}</p>`
-            : ""
-        }
-      `,
-    });
-    return res.status(200).json({ success: true });
-  } catch {
-    return res.status(500).json({ error: "Failed to send submission" });
+  const result = await sendAlert({
+    label: "Program Inquiry",
+    subject: `New ${program} Inquiry — ${name}`,
+    replyTo: email,
+    logData: { name, email, program, message },
+    html: `
+      <h2>New ${program} Inquiry</h2>
+      <p><strong>Program:</strong> ${program}</p>
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      ${
+        message
+          ? `<p><strong>Message:</strong></p><p style="white-space:pre-wrap">${message}</p>`
+          : ""
+      }
+    `,
+  });
+
+  if (!result.ok) {
+    return res
+      .status(502)
+      .json({ error: "Email could not be sent. Please try again later." });
   }
+  return res.status(200).json({ success: true });
 }

@@ -7,17 +7,24 @@ interface GalleryItem {
   caption: string;
 }
 
-// Real event photos drop in automatically once added to /public/gallery with
-// these filenames; until then each tile shows a polished "coming soon" placeholder.
+// Five real event photos in /public/gallery (impact-1.png … impact-5.png).
 const ITEMS: GalleryItem[] = [
-  { src: "/gallery/impact-1.jpg", caption: "Hygiene packet assembly" },
-  { src: "/gallery/impact-2.jpg", caption: "Students with HUG bags" },
-  { src: "/gallery/impact-3.jpg", caption: "Donation box drop-off" },
-  { src: "/gallery/impact-4.jpg", caption: "Volunteer group photo" },
-  { src: "/gallery/impact-5.jpg", caption: "Blanket drive" },
-  { src: "/gallery/impact-6.jpg", caption: "SAT tutoring session" },
-  { src: "/gallery/impact-7.jpg", caption: "Community outreach" },
-  { src: "/gallery/impact-8.jpg", caption: "Clothing distribution" },
+  { src: "/gallery/impact-1.png", caption: "Hygiene packet assembly" },
+  { src: "/gallery/impact-2.png", caption: "HUG for Warmth" },
+  { src: "/gallery/impact-3.png", caption: "Donation box drop-off" },
+  { src: "/gallery/impact-4.png", caption: "Volunteer group photo" },
+  { src: "/gallery/impact-5.png", caption: "Clothing drive" },
+];
+
+// Intentional layout for exactly 5 tiles:
+//  • desktop (6-col grid): two large on top (span 3), three below (span 2)
+//  • mobile (2-col grid): a 2×2 block + a full-width fifth tile
+const LAYOUT = [
+  "col-span-1 md:col-span-3 h-52 md:h-72",
+  "col-span-1 md:col-span-3 h-52 md:h-72",
+  "col-span-1 md:col-span-2 h-52 md:h-60",
+  "col-span-1 md:col-span-2 h-52 md:h-60",
+  "col-span-2 md:col-span-2 h-52 md:h-60",
 ];
 
 function Tile({
@@ -30,9 +37,6 @@ function Tile({
   onOpen: () => void;
 }) {
   const [errored, setErrored] = useState(false);
-  // Vary tile heights for a masonry rhythm.
-  const heights = ["h-56", "h-72", "h-64", "h-80"];
-  const h = heights[index % heights.length];
 
   return (
     <motion.button
@@ -40,8 +44,8 @@ function Tile({
       initial={{ opacity: 0, scale: 0.92, filter: "blur(8px)" }}
       whileInView={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.6, delay: (index % 4) * 0.12, ease: "easeOut" }}
-      className={`group relative mb-4 w-full ${h} overflow-hidden rounded-2xl shadow-sm border border-purple-50 block`}
+      transition={{ duration: 0.6, delay: index * 0.12, ease: "easeOut" }}
+      className={`group relative w-full overflow-hidden rounded-2xl shadow-sm border border-purple-50 block ${LAYOUT[index]}`}
     >
       {errored ? (
         <div className="absolute inset-0 shimmer flex flex-col items-center justify-center text-[#6D5CAE]">
@@ -88,11 +92,9 @@ export default function GalleryGrid() {
 
   return (
     <>
-      <div className="columns-2 md:columns-3 gap-4 max-w-5xl mx-auto [column-fill:_balance]">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 max-w-5xl mx-auto">
         {ITEMS.map((item, i) => (
-          <div key={item.src} className="break-inside-avoid">
-            <Tile item={item} index={i} onOpen={() => open(i)} />
-          </div>
+          <Tile key={item.src} item={item} index={i} onOpen={() => open(i)} />
         ))}
       </div>
 

@@ -7,6 +7,8 @@ export interface BoardMember {
   role: string;
   photo: string; // /board/<file>.png
   funFacts: string[];
+  /** CSS object-position for the cover crop (e.g. "center 25%"). Defaults to center. */
+  objectPosition?: string;
 }
 
 function initials(name: string) {
@@ -60,6 +62,7 @@ export default function BoardCard({
             fill
             sizes="(max-width: 768px) 100vw, 33vw"
             onError={() => setErrored(true)}
+            style={{ objectPosition: member.objectPosition ?? "center" }}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         )}

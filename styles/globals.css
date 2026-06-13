@@ -69,13 +69,6 @@ html {
 .space-panel { background-color: rgba(249, 248, 255, 0.82); }
 .space-panel-white { background-color: rgba(255, 255, 255, 0.88); }
 
-/* Astronaut gentle idle bob (inner element; outer is driven by GSAP scrub) */
-@keyframes astroBob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-.astro-bob { animation: astroBob 3.5s ease-in-out infinite; }
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -24,22 +24,24 @@ export default async function handler(
 
   const { name, email, subject, message } = parsed.data;
 
-  try {
-    await sendAlert({
-      label: "Contact",
-      subject: `[HUG Contact] ${subject}`,
-      replyTo: email,
-      logData: { name, email, subject, message },
-      html: `
-        <h2>New contact form submission</h2>
-        <p><strong>From:</strong> ${name} &lt;${email}&gt;</p>
-        <p><strong>Subject:</strong> ${subject}</p>
-        <p><strong>Message:</strong></p>
-        <p style="white-space:pre-wrap">${message}</p>
-      `,
-    });
-    return res.status(200).json({ success: true });
-  } catch {
-    return res.status(500).json({ error: "Failed to send email" });
+  const result = await sendAlert({
+    label: "Contact",
+    subject: `New Contact Message: ${subject}`,
+    replyTo: email,
+    logData: { name, email, subject, message },
+    html: `
+      <h2>New Contact Message</h2>
+      <p><strong>From:</strong> ${name} &lt;${email}&gt;</p>
+      <p><strong>Subject:</strong> ${subject}</p>
+      <p><strong>Message:</strong></p>
+      <p style="white-space:pre-wrap">${message}</p>
+    `,
+  });
+
+  if (!result.ok) {
+    return res
+      .status(502)
+      .json({ error: "Email could not be sent. Please try again later." });
   }
+  return res.status(200).json({ success: true });
 }

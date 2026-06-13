@@ -332,21 +332,8 @@ export default function Layout({ children, onScrollToSection, className }: Props
           </div>
 
           {/* Bottom bar */}
-          <div className="border-t border-purple-100 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-gray-500">
-            <p>
-              © {new Date().getFullYear()} HUG Foundation. All rights reserved.
-            </p>
-            <p>
-              Website designed and built by{" "}
-              <a
-                href="https://arghyav.vercel.app/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#6D5CAE] underline hover:text-[#4b3a8f]"
-              >
-                Arghya Vyas
-              </a>
-            </p>
+          <div className="border-t border-purple-100 pt-6 text-center text-xs text-gray-500">
+            <p>© {new Date().getFullYear()} HUG Foundation. All rights reserved.</p>
           </div>
         </div>
       </footer>

@@ -29,14 +29,14 @@ function PartnerLogo({ partner }: { partner: Partner }) {
   }
 
   return (
-    <div className="mx-8 flex h-14 items-center justify-center">
+    <div className="mx-8 flex h-14 w-[150px] items-center justify-center">
       <Image
         src={partner.file}
         alt={partner.name}
         width={160}
         height={60}
         onError={() => setErrored(true)}
-        className="h-12 md:h-[56px] w-auto object-contain grayscale opacity-80 transition duration-300 hover:grayscale-0 hover:opacity-100"
+        className="max-h-12 md:max-h-[56px] max-w-[150px] w-auto object-contain grayscale opacity-80 transition duration-300 hover:grayscale-0 hover:opacity-100"
       />
     </div>
   );

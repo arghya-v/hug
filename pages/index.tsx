@@ -16,7 +16,6 @@ import ProgramFormModal from "@/components/ProgramFormModal";
 import ProgramTabs from "@/components/ProgramTabs";
 import GalleryGrid from "@/components/GalleryGrid";
 import NebulaDivider from "@/components/NebulaDivider";
-import AstronautFlight from "@/components/AstronautFlight";
 import {
   EditableProvider,
   Editable,
@@ -24,11 +23,6 @@ import {
 } from "@/components/cms/EditableProvider";
 
 gsap.registerPlugin(ScrollTrigger);
-
-const ParticleField = dynamic(() => import("@/components/ParticleField"), {
-  ssr: false,
-  loading: () => null,
-});
 
 const GlobeScene = dynamic(() => import("@/components/GlobeScene"), {
   ssr: false,
@@ -102,6 +96,7 @@ function HomeContent() {
   const volunteerRef = useRef<HTMLElement>(null);
   const aboutValuesRef = useRef<HTMLUListElement>(null);
   const donateCardsRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const anyModalOpen =
     impact1Open || impact2Open || impact3Open || programModalOpen;
@@ -112,6 +107,15 @@ function HomeContent() {
       document.body.style.overflow = "";
     };
   }, [anyModalOpen]);
+
+  // Pause/hide video when user prefers reduced motion
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced && videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.style.display = "none";
+    }
+  }, []);
 
   useEffect(() => {
     const reduced =
@@ -199,20 +203,29 @@ function HomeContent() {
       </Head>
 
       <Layout onScrollToSection={scrollToSection}>
-        {/* Scroll-driven astronaut bridging hero → about */}
-        <AstronautFlight />
-
         {/* ─── HERO (black space) ───────────────────────────────────────── */}
         <section
           id="hero"
           className="relative flex flex-col lg:flex-row items-center justify-between px-6 md:px-10 lg:px-20 min-h-screen pt-24 pb-16 overflow-hidden bg-black"
         >
-          <div className="absolute inset-0 pointer-events-none z-0">
-            <ParticleField />
-          </div>
+          {/* Video starfield background */}
+          <video
+            ref={videoRef}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
+          >
+            <source src="/space-bg.mp4" type="video/mp4" />
+          </video>
 
+          {/* Dark overlay — ensures hero text passes WCAG AA over the video */}
+          <div className="absolute inset-0 pointer-events-none z-[1] bg-black/40" />
+
+          {/* Purple accent glow — top-left */}
           <div
-            className="absolute inset-0 pointer-events-none z-0"
+            className="absolute inset-0 pointer-events-none z-[1]"
             style={{
               background:
                 "radial-gradient(ellipse at top left, rgba(109,92,174,0.35) 0%, transparent 55%)",
@@ -222,7 +235,7 @@ function HomeContent() {
           {/* Blend: black space → daylight (#f9f8ff) */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-40 z-[1] bg-gradient-to-b from-transparent to-[#f9f8ff]"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-40 z-[2] bg-gradient-to-b from-transparent to-[#f9f8ff]"
           />
 
           {/* Text */}

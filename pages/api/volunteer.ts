@@ -31,28 +31,30 @@ export default async function handler(
   const { fullName, email, phone, roleInterest, availability, message } =
     parsed.data;
 
-  try {
-    await sendAlert({
-      label: "Volunteer",
-      subject: `[HUG Volunteer] Application from ${fullName}`,
-      replyTo: email,
-      logData: { fullName, email, phone, roleInterest, availability, message },
-      html: `
-        <h2>New Volunteer Application</h2>
-        <p><strong>Name:</strong> ${fullName}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        ${phone ? `<p><strong>Phone:</strong> ${phone}</p>` : ""}
-        <p><strong>Role Interest:</strong> ${roleInterest}</p>
-        <p><strong>Availability:</strong> ${availability.join(", ")}</p>
-        ${
-          message
-            ? `<p><strong>Message:</strong></p><p style="white-space:pre-wrap">${message}</p>`
-            : ""
-        }
-      `,
-    });
-    return res.status(200).json({ success: true });
-  } catch {
-    return res.status(500).json({ error: "Failed to send email" });
+  const result = await sendAlert({
+    label: "Volunteer",
+    subject: `New Volunteer Application — ${fullName}`,
+    replyTo: email,
+    logData: { fullName, email, phone, roleInterest, availability, message },
+    html: `
+      <h2>New Volunteer Application</h2>
+      <p><strong>Name:</strong> ${fullName}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      ${phone ? `<p><strong>Phone:</strong> ${phone}</p>` : ""}
+      <p><strong>Role Interest:</strong> ${roleInterest}</p>
+      <p><strong>Availability:</strong> ${availability.join(", ")}</p>
+      ${
+        message
+          ? `<p><strong>Message:</strong></p><p style="white-space:pre-wrap">${message}</p>`
+          : ""
+      }
+    `,
+  });
+
+  if (!result.ok) {
+    return res
+      .status(502)
+      .json({ error: "Email could not be sent. Please try again later." });
   }
+  return res.status(200).json({ success: true });
 }

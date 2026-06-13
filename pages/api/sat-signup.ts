@@ -25,28 +25,30 @@ export default async function handler(
 
   const { name, email, grade, currentScore, goals } = parsed.data;
 
-  try {
-    await sendAlert({
-      label: "SAT Signup",
-      subject: `[HUG SAT] New signup from ${name}`,
-      replyTo: email,
-      logData: { name, email, grade, currentScore, goals },
-      html: `
-        <h2>New SAT Tutoring Signup</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Grade:</strong> ${grade}</p>
-        ${
-          currentScore
-            ? `<p><strong>Current SAT Score:</strong> ${currentScore}</p>`
-            : ""
-        }
-        <p><strong>Goals:</strong></p>
-        <p style="white-space:pre-wrap">${goals}</p>
-      `,
-    });
-    return res.status(200).json({ success: true });
-  } catch {
-    return res.status(500).json({ error: "Failed to send email" });
+  const result = await sendAlert({
+    label: "SAT Signup",
+    subject: `New SAT Tutoring Signup — ${name}`,
+    replyTo: email,
+    logData: { name, email, grade, currentScore, goals },
+    html: `
+      <h2>New SAT Tutoring Signup</h2>
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Grade:</strong> ${grade}</p>
+      ${
+        currentScore
+          ? `<p><strong>Current SAT Score:</strong> ${currentScore}</p>`
+          : ""
+      }
+      <p><strong>Goals:</strong></p>
+      <p style="white-space:pre-wrap">${goals}</p>
+    `,
+  });
+
+  if (!result.ok) {
+    return res
+      .status(502)
+      .json({ error: "Email could not be sent. Please try again later." });
   }
+  return res.status(200).json({ success: true });
 }
